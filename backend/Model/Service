@@ -1,0 +1,64 @@
+import java.io.*;
+import java.net.*;
+import java.util.*;
+
+public class Server {
+    private ServerSocket serverSocket;
+    private ArrayList<PrintWriter> clientOutputStreams;
+
+    public static void main(String[] args) {
+        Server server = new Server();
+        server.start(5000);
+    }
+
+    public void start(int port) {
+        try {
+            serverSocket = new ServerSocket(port);
+            clientOutputStreams = new ArrayList<>();
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                PrintWriter writer = new PrintWriter(clientSocket.getOutputStream());
+                clientOutputStreams.add(writer);
+                Thread t = new Thread(new ClientHandler(clientSocket));
+                t.start();
+                System.out.println("Got a connection from " + clientSocket.getInetAddress());
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void broadcastMessage(String message) {
+        for (PrintWriter writer : clientOutputStreams) {
+            writer.println(message);
+            writer.flush();
+        }
+    }
+
+    private class ClientHandler implements Runnable {
+        private Socket clientSocket;
+        private BufferedReader reader;
+
+        public ClientHandler(Socket socket) {
+            clientSocket = socket;
+            try {
+                InputStreamReader isReader = new InputStreamReader(clientSocket.getInputStream());
+                reader = new BufferedReader(isReader);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        public void run() {
+            String message;
+            try {
+                while ((message = reader.readLine()) != null) {
+                    System.out.println("Received message: " + message);
+                    broadcastMessage(message);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
